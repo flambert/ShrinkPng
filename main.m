@@ -1,24 +1,39 @@
 
 #import <Foundation/Foundation.h>
 
-CGImageRef CreateImageFromPNG(NSString *filename)
-{
+CGImageRef CreateImageFromFileAtPath(NSString *filename) {
 	CGDataProviderRef provider = CGDataProviderCreateWithFilename([filename UTF8String]);
 	if (provider == NULL)
 	{
 		fprintf(stderr, "Could not open '%s'\n", [filename UTF8String]);
 		return NULL;
 	}
-
-	CGImageRef image = CGImageCreateWithPNGDataProvider(provider, NULL, false, kCGRenderingIntentDefault);
+    
+	CGImageRef image;
+    
+    if ([filename hasSuffix:@"png"]) {
+        image = CGImageCreateWithPNGDataProvider(provider, NULL, false, kCGRenderingIntentDefault);
+    } else if ([filename hasSuffix:@"jpg"] || [filename hasSuffix:@"jpeg"]) {
+        image = CGImageCreateWithJPEGDataProvider(provider, NULL, false, kCGRenderingIntentDefault);
+    } else {
+        image = CGImageCreateWithPNGDataProvider(provider, NULL, false, kCGRenderingIntentDefault);
+    }
+    
 	CGDataProviderRelease(provider);
 	return image;
 }
 
-BOOL SaveImageToPNG(NSString *filename, CGImageRef image)
+BOOL SaveImageToFileAtPath(NSString *filename, CGImageRef image)
 {
-	CGImageDestinationRef dest = CGImageDestinationCreateWithURL(
-		(CFURLRef)[NSURL fileURLWithPath:filename], kUTTypePNG, 1, NULL);
+    CGImageDestinationRef dest;
+    
+    if ([filename hasSuffix:@"png"]) {
+        dest = CGImageDestinationCreateWithURL((CFURLRef)[NSURL fileURLWithPath:filename], kUTTypePNG, 1, NULL);
+    } else if ([filename hasSuffix:@"jpg"] || [filename hasSuffix:@"jpeg"]) {
+        dest = CGImageDestinationCreateWithURL((CFURLRef)[NSURL fileURLWithPath:filename], kUTTypeJPEG, 1, NULL);
+    } else {
+        dest = CGImageDestinationCreateWithURL((CFURLRef)[NSURL fileURLWithPath:filename], kUTTypePNG, 1, NULL);
+    }
 
 	if (dest == NULL)
 	{
@@ -168,7 +183,17 @@ int main(int argc, const char *argv[])
 	NSString *inputFilename = [NSString stringWithCString:argv[1] encoding:NSUTF8StringEncoding];
 	inputFilename = [inputFilename stringByExpandingTildeInPath];
 
+    NSString *extension = [inputFilename pathExtension];
 	NSString *withoutExtension = [inputFilename stringByDeletingPathExtension];
+    NSString *targetDevice;
+    if ([withoutExtension hasSuffix:@"~iphone"]) {
+        targetDevice = @"~iphone";
+        withoutExtension = [withoutExtension substringToIndex:withoutExtension.length - 7];
+    } else if ([withoutExtension hasSuffix:@"~ipad"]) {
+        targetDevice = @"~ipad";
+        withoutExtension = [withoutExtension substringToIndex:withoutExtension.length - 5];
+    }
+    
 	if (![withoutExtension hasSuffix:@"@2x"])
 	{
 		fprintf(stderr, "Input file must be @2x\n");
@@ -182,9 +207,13 @@ int main(int argc, const char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	NSString *outputFilename = [without2x stringByAppendingPathExtension:@"png"];
-
-	CGImageRef inImage = CreateImageFromPNG(inputFilename);
+	NSString *outputFilename = without2x;
+    if (targetDevice.length != 0)
+        outputFilename = [outputFilename stringByAppendingString:targetDevice];
+    if (extension.length != 0)
+        outputFilename = [outputFilename stringByAppendingPathExtension:extension];
+    
+	CGImageRef inImage = CreateImageFromFileAtPath(inputFilename);
 	if (inImage != NULL)
 	{
 		size_t width = CGImageGetWidth(inImage);
@@ -205,7 +234,7 @@ int main(int argc, const char *argv[])
 
 				if (outImage != NULL)
 				{
-					SaveImageToPNG(outputFilename, outImage);
+					SaveImageToFileAtPath(outputFilename, outImage);
 					CGImageRelease(outImage);
 				}
 			}
