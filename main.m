@@ -185,7 +185,7 @@ int main(int argc, const char *argv[])
 
     NSString *extension = [inputFilename pathExtension];
 	NSString *withoutExtension = [inputFilename stringByDeletingPathExtension];
-    NSString *targetDevice;
+    NSString *targetDevice = nil;
     if ([withoutExtension hasSuffix:@"~iphone"]) {
         targetDevice = @"~iphone";
         withoutExtension = [withoutExtension substringToIndex:withoutExtension.length - 7];
